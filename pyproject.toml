@@ -1,0 +1,23 @@
+# Copyright 2025 Lincoln Institute of Land Policy
+# SPDX-License-Identifier: Apache-2.0
+
+[project]
+name = "mainstemservice"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "starlette>=0.48.0",
+    "geopandas>=1.1.1",
+    "shapely>=2.1.2",
+    "uvicorn>=0.38.0",
+    "duckdb>=1.4.2",
+]
+
+[dependency-groups]
+dev = [
+    "jupyter>=1.1.1",
+    "pyright>=1.1.407",
+    "ruff>=0.14.2",
+]
