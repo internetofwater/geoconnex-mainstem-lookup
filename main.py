@@ -108,8 +108,6 @@ async def get_mainstem(request: Request):
 
     return JSONResponse(
         {
-            "lon": lon,
-            "lat": lat,
             "mainstem_id": mainstem_id,
             "mainstem_url": mainstem_url,
         }
