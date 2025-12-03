@@ -1,6 +1,13 @@
 # Copyright 2025 Lincoln Institute of Land Policy
 # SPDX-License-Identifier: Apache-2.0
 
+"""
+This file is an example showing how to do a geoconnex
+mainstem lookup with geopandas. It is useful if you want
+a way that does not require a server and you just want to
+download the script / gpkg directly
+"""
+
 # %%
 from pathlib import Path
 import geopandas as gpd
