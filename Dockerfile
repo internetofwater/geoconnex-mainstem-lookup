@@ -1,0 +1,24 @@
+# Copyright 2025 Lincoln Institute of Land Policy
+# SPDX-License-Identifier: MIT
+
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS builder
+
+# Copy from the cache into container and the use system Python interpreter
+# Set no cache to true so we don't use the uv cache but instead use the docker layer cache
+# this is since we are not using buildkit and thus cannot cache to a mount dir on the host
+ENV UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=0 UV_NO_CACHE=true
+
+WORKDIR /app
+
+# System dependencies for GDAL and others
+RUN apt-get update && apt-get install -y --no-install-recommends libgdal-dev git build-essential \
+    && apt-get clean && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy project metadata for dependency resolution
+COPY pyproject.toml uv.lock /app/
+
+RUN uv sync --no-group dev
+
+# Entrypoint for running the app
+CMD [ "uv", "run", "main.py" ]

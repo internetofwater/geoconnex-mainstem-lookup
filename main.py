@@ -7,45 +7,48 @@ from starlette.routing import Route
 from starlette.requests import Request
 from pathlib import Path
 import duckdb
-import pandas as pd
 import logging
 
-LOGGER = logging.getLogger(__name__)
-LOGGER.setLevel(logging.INFO)
+LOGGER = logging.getLogger("uvicorn.error")
 
 BASE_PATH = Path(__file__).parent
 MERGED_GPKG = BASE_PATH / "merged.gpkg"
 
-# Create a DuckDB in-memory connection and enable spatial extension
-LOGGER.info("Creating DuckDB connection")
-con = duckdb.connect(database=":memory:")
-con.execute("INSTALL spatial;")
-con.execute("LOAD spatial;")
-
-LOGGER.info("Loading data into DuckDB")
-# Load catchments and flowlines into DuckDB
-con.execute("""
-CREATE TABLE catchments AS 
-SELECT * FROM st_read('merged.gpkg', layer='reference_catchments')
-""")
-
-con.execute("""
-CREATE INDEX catchments_geom_idx ON catchments USING rtree(geom);
-""")
-
-con.execute("""
-CREATE TABLE flowlines AS 
-SELECT * FROM st_read('merged.gpkg', layer='flowlines')
-""")
+app = Starlette(debug=True)
 
 
-# Load mainstem lookup as a DuckDB table
-mainstem_lookup = pd.read_csv(
-    "https://github.com/internetofwater/ref_rivers/releases/download/v2.1/mainstem_lookup.csv"
-)
-mainstem_lookup["lp_mainstem"] = mainstem_lookup["lp_mainstem"].astype(int)
-mainstem_lookup["ref_mainstem_id"] = mainstem_lookup["ref_mainstem_id"].astype(int)
-con.register("mainstem_lookup", mainstem_lookup)
+@app.on_event("startup")
+async def startup():
+    LOGGER.info("Creating DuckDB connection")
+    global con
+    con = duckdb.connect(database=":memory:")
+    con.execute("INSTALL spatial;")
+    con.execute("LOAD spatial;")
+
+    LOGGER.info("Loading catchments into DuckDB")
+    con.execute("""
+    CREATE TABLE catchments AS 
+    SELECT * FROM st_read('merged.gpkg', layer='reference_catchments')
+    """)
+    LOGGER.info("Creating spatial index")
+    con.execute("""
+    CREATE INDEX catchments_geom_idx ON catchments USING rtree(geom);
+    """)
+    LOGGER.info("Loading flowlines into DuckDB")
+    con.execute("""
+    CREATE TABLE flowlines AS 
+    SELECT * FROM st_read('merged.gpkg', layer='flowlines')
+    """)
+
+    # Load mainstem lookup as DuckDB table
+    import pandas as pd
+
+    mainstem_lookup = pd.read_csv(
+        "https://github.com/internetofwater/ref_rivers/releases/download/v2.1/mainstem_lookup.csv"
+    )
+    mainstem_lookup["lp_mainstem"] = mainstem_lookup["lp_mainstem"].astype(int)
+    mainstem_lookup["ref_mainstem_id"] = mainstem_lookup["ref_mainstem_id"].astype(int)
+    con.register("mainstem_lookup", mainstem_lookup)
 
 
 async def get_mainstem(request: Request):
@@ -116,7 +119,10 @@ async def get_mainstem(request: Request):
 
 routes = [Route("/", get_mainstem)]
 
-app = Starlette(debug=True, routes=routes)
+# Have to extend instead of just immediately
+# assigning since the
+app.routes.extend(routes)
+
 
 if __name__ == "__main__":
     import uvicorn
